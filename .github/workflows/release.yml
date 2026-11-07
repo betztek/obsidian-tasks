@@ -1,112 +1,80 @@
-name: Release Obsidian Plugin
+name: Release Obsidian Plugin (custom)
+
+# Manually triggered: Actions → "Release Obsidian Plugin (custom)" → Run workflow.
+# Tag and release name are taken from manifest.json "version" (no "v" prefix),
+# which is what BRAT expects. Fails if that tag already exists.
+
 on:
-  push:
-    # Sequence of patterns matched against refs/tags
-    tags:
-    - '*' # Push events to matching any tag format, i.e. 1.0, 20.15.10
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-
     steps:
-    - uses: actions/checkout@v7
-      with:
-        fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+      - name: Refuse to release from anything but the custom branch
+        if: github.ref != 'refs/heads/custom'
+        run: |
+          echo "::error::Releases must be run from the 'custom' branch (got ${GITHUB_REF})."
+          exit 1
 
-    - name: Use Node.js
-      uses: actions/setup-node@v7
-      with:
-        node-version: 22
-        cache: 'npm'
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
-    # Get the version number and put it in a variable
-    - name: Get Version
-      id: version
-      run: |
-        echo "::set-output name=tag::$(git describe --abbrev=0 --tags)"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: 'yarn'
 
-    # Build the plugin
-    - name: Build
-      id: build
-      run: |
-        yarn
-        yarn run build
+      - name: Read version from manifest.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' manifest.json)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "::error::manifest.json has no version"
+            exit 1
+          fi
+          echo "Version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-    # Package the required files into a zip
-    - name: Package
-      run: |
-        mkdir ${{ github.event.repository.name }}
-        cp main.js manifest.json styles.css README.md ${{ github.event.repository.name }}
-        zip -r ${{ github.event.repository.name }}.zip ${{ github.event.repository.name }}
+      - name: Fail if tag already exists
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" > /dev/null; then
+            echo "::error::Tag ${VERSION} already exists. Bump the version in manifest.json first."
+            exit 1
+          fi
 
-    - name: Attest build provenance
-      uses: actions/attest@v4
-      with:
-        subject-path: |
-          main.js
-          styles.css
+      - name: Install and build
+        run: |
+          yarn --frozen-lockfile
+          yarn run build
 
-    # Create the release on github
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        VERSION: ${{ github.ref }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: ${{ github.ref }}
-        draft: true
-        prerelease: false
+      - name: Run tests
+        run: yarn run test
 
-    # Upload the packaged release file
-    - name: Upload zip file
-      id: upload-zip
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./${{ github.event.repository.name }}.zip
-        asset_name: ${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip
-        asset_content_type: application/zip
+      - name: Check build outputs exist
+        run: ls -l main.js manifest.json styles.css
 
-    # Upload the main.js
-    - name: Upload main.js
-      id: upload-main
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./main.js
-        asset_name: main.js
-        asset_content_type: text/javascript
-
-    # Upload the manifest.json
-    - name: Upload manifest.json
-      id: upload-manifest
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./manifest.json
-        asset_name: manifest.json
-        asset_content_type: application/json
-
-    # Upload the style.css
-    - name: Upload styles.css
-      id: upload-css
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./styles.css
-        asset_name: styles.css
-        asset_content_type: text/css
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "$VERSION" "$GITHUB_SHA"
+          git push origin "refs/tags/${VERSION}"
+          gh release create "$VERSION" \
+            --verify-tag \
+            --title "$VERSION" \
+            --notes "Custom build ${VERSION} from ${GITHUB_SHA}." \
+            --latest \
+            main.js manifest.json styles.css
