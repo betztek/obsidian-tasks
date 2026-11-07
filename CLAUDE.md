@@ -54,6 +54,37 @@ If a requested change would cross that line, stop and say so before implementing
 - **Never edit or delete an existing test to make it pass** without explicitly saying which test and why.
 - **Run the full suite before every push:** `yarn test` (and `yarn run lint:no-fix` for TS/Svelte changes).
 
+## Working agreements
+
+- **Scope:** keep each change focused on what was asked. Don't bundle unrelated fixes or refactors;
+  mention them as suggestions instead.
+- **Plan first:** for anything beyond a small, obvious tweak (new UI element, changes across several files,
+  anything touching settings), propose the approach and wait for an explicit OK before coding.
+- **Corrections:** when corrected on a convention or preference, propose a CLAUDE.md update so the next
+  session gets it right.
+
+### Procedure: "upstream sync"
+
+Run when asked to "do an upstream sync".
+
+1. Sync `main` with upstream `obsidian-tasks-group/obsidian-tasks` (add an `upstream` remote if missing).
+   `main` is only ever fast-forwarded to upstream, never committed to.
+2. Rebase `custom` onto `main`, resolving conflicts in favor of keeping the custom changes.
+3. Run the full suite (`yarn test`, `yarn run lint:no-fix`).
+4. Set `manifest.json` version to `<new-upstream-version>-jb.1`.
+5. Summarize upstream changes that touch the customizations (files or behavior changed on `custom`).
+
+Push `main`, then force-push `custom` with `--force-with-lease`, only after the suite is green.
+
+### Procedure: "pre-release check"
+
+Run when asked for a "pre-release check".
+
+1. List commits on `custom` since the last release tag (`git fetch --tags`; `git log <last-tag>..custom`).
+2. Run the full suite and a production build (`yarn test`, `yarn run lint:no-fix`, `yarn run build`).
+3. Bump the `-jb.<n>` version in `manifest.json`, commit, and push `custom`.
+4. List what to verify by hand in Obsidian before clicking **Run workflow**, based on the commits in step 1.
+
 ## Commands
 
 | Task | Command |
