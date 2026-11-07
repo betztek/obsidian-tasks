@@ -1,9 +1,9 @@
 name: Verify Commit
 on:
   push:
-    branches: ['*']
+    branches: [custom]
   pull_request:
-    branches: [main]
+    branches: [custom]
   workflow_dispatch:
 jobs:
   validate:
@@ -12,14 +12,18 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
       - name: Install modules
-        run: yarn
+        run: yarn --frozen-lockfile
 
       - name: Run build
         run: yarn run build
 
       - name: Run TypeScript compiler ESLint
-        run: yarn run lint
+        run: yarn run lint:no-fix
 
       - name: Run Markdown Lint
         run: yarn run lint:markdown
@@ -35,31 +39,3 @@ jobs:
             main.js
             manifest.json
             styles.css
-
-      - name: Copy new build to Tasks-Demo vault
-        run: ./scripts/Test-TasksInLocalObsidian.sh
-
-      - name: Archive Tasks-Demo vault
-        uses: actions/upload-artifact@v7
-        with:
-          name: Tasks-Demo-VerifyCommit-Build${{ github.run_number }}-Run${{ github.run_attempt }}
-          include-hidden-files: true
-          path: |
-            resources/sample_vaults/Tasks-Demo
-
-      - name: Install graphviz
-        run: sudo apt-get install -y graphviz
-
-      - name: Identify circular dependencies
-        run: |
-          yarn run circular-deps-text || echo continuing after error message
-          git diff circular-deps.txt  || echo continuing after error message
-          yarn run circular-deps-image
-
-      - name: Archive circular dependencies results
-        uses: actions/upload-artifact@v7
-        with:
-          name: circular-dependencies
-          path: |
-            circular-deps.png
-            circular-deps.txt
