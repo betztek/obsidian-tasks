@@ -1,10 +1,15 @@
 name: Release Obsidian Plugin (custom)
 
-# Manually triggered: Actions → "Release Obsidian Plugin (custom)" → Run workflow.
-# Tag and release name are taken from manifest.json "version" (no "v" prefix),
-# which is what BRAT expects. Fails if that tag already exists.
+# Releases whenever manifest.json "version" is bumped on custom.
+#   - push to custom that changes manifest.json: release if the version has no tag yet,
+#     otherwise skip quietly (success).
+#   - manual: Actions → "Release Obsidian Plugin (custom)" → Run workflow. Fails if the tag exists.
+# Tag and release name are the manifest version (no "v" prefix), which is what BRAT expects.
 
 on:
+  push:
+    branches: [custom]
+    paths: [manifest.json]
   workflow_dispatch:
 
 permissions:
@@ -45,27 +50,38 @@ jobs:
           echo "Version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Fail if tag already exists
+      - name: Check whether this version is already released
+        id: check
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" > /dev/null; then
-            echo "::error::Tag ${VERSION} already exists. Bump the version in manifest.json first."
-            exit 1
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+              echo "::error::Tag ${VERSION} already exists. Bump the version in manifest.json first."
+              exit 1
+            fi
+            echo "::notice::${VERSION} is already released; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install and build
+        if: steps.check.outputs.release == 'true'
         run: |
           yarn --frozen-lockfile
           yarn run build
 
       - name: Run tests
+        if: steps.check.outputs.release == 'true'
         run: yarn run test
 
       - name: Check build outputs exist
+        if: steps.check.outputs.release == 'true'
         run: ls -l main.js manifest.json styles.css
 
       - name: Create tag and GitHub Release
+        if: steps.check.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
