@@ -51,6 +51,11 @@ They must **not** alter task syntax, serialization, parsing, query language, or 
 what gets written to Markdown files. Both plugins may read the same vault; the files must stay
 100% compatible with official Tasks.
 
+The rule protects the parser and file format, not every written value. An action that writes a different
+value in the same syntax is fine when official Tasks can already write that value through its own UI (e.g. the
+postpone button moving an overdue date to today, which the upstream right-click menu also offers), provided
+it's opt-in and off by default.
+
 If a requested change would cross that line, stop and say so before implementing.
 
 ## Testing discipline
