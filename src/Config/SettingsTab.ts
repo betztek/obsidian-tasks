@@ -872,13 +872,28 @@ export class SettingsTab extends PluginSettingTab {
 
                             dropdown.setValue(getSettings().postpone.dateField).onChange(async (value) => {
                                 updateSettings({
-                                    postpone: { dateField: value as PostponeDateField },
+                                    postpone: { ...getSettings().postpone, dateField: value as PostponeDateField },
                                 });
                                 await this.plugin.saveSettings();
                                 this.events.triggerReloadOpenSearchResults();
                             });
                         });
                     }, 'https://publish.obsidian.md/tasks/Editing/Postponing'),
+                },
+                {
+                    name: i18n.t('settings.postponeButton.overdueToToday.name'),
+                    desc: i18n.t('settings.postponeButton.overdueToToday.description'),
+                    render: (setting) => {
+                        setting.addToggle((toggle) => {
+                            toggle.setValue(getSettings().postpone.overdueToToday ?? false).onChange(async (value) => {
+                                updateSettings({
+                                    postpone: { ...getSettings().postpone, overdueToToday: value },
+                                });
+                                await this.plugin.saveSettings();
+                                this.events.triggerReloadOpenSearchResults();
+                            });
+                        });
+                    },
                 },
             ],
         };

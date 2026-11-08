@@ -1,6 +1,6 @@
 import type { App, Component, TFile } from 'obsidian';
 import { getSettings } from '../Config/Settings';
-import { postponeButtonTitle, shouldShowPostponeButton } from '../DateTime/Postponer';
+import { getPostponeButtonAction, shouldShowPostponeButton } from '../DateTime/Postponer';
 import type { IQuery } from '../IQuery';
 import { QueryLayout } from '../Layout/QueryLayout';
 import { TaskLayout } from '../Layout/TaskLayout';
@@ -318,21 +318,19 @@ export class HtmlQueryResultsRenderer extends QueryResultsRendererBase {
     }
 
     private addPostponeButton(listItem: HTMLElement, task: Task, shortMode: boolean) {
-        const amount = 1;
-        const timeUnit = 'day';
-        const buttonTooltipText = postponeButtonTitle(task, amount, timeUnit);
+        const { amount, timeUnit, postponingFunction, title } = getPostponeButtonAction(task);
 
         const button = listItem.createEl('a');
         button.classList.add('tasks-postpone');
         if (shortMode) {
             button.classList.add('tasks-postpone-short-mode');
         }
-        button.title = buttonTooltipText;
+        button.title = title;
 
         button.addEventListener('click', async (ev: MouseEvent) => {
             ev.preventDefault(); // suppress the default click behavior
             ev.stopPropagation(); // suppress further event propagation
-            await PostponeMenu.postponeOnClickCallback(button, task, amount, timeUnit);
+            await PostponeMenu.postponeOnClickCallback(button, task, amount, timeUnit, postponingFunction);
         });
 
         /** Open a context menu on right-click.

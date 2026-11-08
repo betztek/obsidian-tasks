@@ -224,6 +224,10 @@
     },
     "postponeButton": {
       "heading": "Postpone button",
+      "overdueToToday": {
+        "description": "When a task's date is in the past, the postpone button (⏩) moves it to today instead of tomorrow. Dates that are today or later are postponed by a day as usual. The right-click menu is unchanged.",
+        "name": "Postpone overdue dates to today"
+      },
       "postponeDateField": {
         "description": "Which date field the postpone button (⏩) updates. For options with multiple dates, the first date in the sequence that is present on the task will be set.",
         "name": "Postpone button date field",

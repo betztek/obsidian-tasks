@@ -7,6 +7,7 @@ import {
     createTaskWithDateRemoved,
     fixedDateMenuItemTitle,
     getDateFieldToPostpone,
+    getPostponeButtonAction,
     postponeButtonTitle,
     postponeMenuItemTitle,
     postponementSuccessMessage,
@@ -279,6 +280,68 @@ describe('postpone - new task creation', () => {
     it('should remove a date', () => {
         const task = new TaskBuilder().startDate('2024-03-05').build();
         testPostponedTaskAndDate(task, 'startDate', '', createTaskWithDateRemoved);
+    });
+});
+
+describe('postpone - button action with postpone.overdueToToday setting', () => {
+    function buttonResult(task: Task) {
+        const action = getPostponeButtonAction(task);
+        const dateField = getDateFieldToPostpone(task)!;
+        const { postponedDate } = action.postponingFunction(task, dateField, action.timeUnit, action.amount);
+        return { date: postponedDate!.format('YYYY-MM-DD'), title: action.title };
+    }
+
+    describe('setting off (default)', () => {
+        it('should postpone an overdue task to tomorrow', () => {
+            const task = new TaskBuilder().dueDate(yesterday).build();
+            expect(buttonResult(task)).toEqual({
+                date: tomorrow,
+                title: 'ℹ️ Due tomorrow, on Mon 4th Dec (right-click for more options)',
+            });
+        });
+    });
+
+    describe('setting on', () => {
+        beforeEach(() => {
+            updateSettings({ postpone: { dateField: 'due-scheduled-start', overdueToToday: true } });
+        });
+
+        it('should move an overdue task to today', () => {
+            const task = new TaskBuilder().dueDate('2023-11-01').build();
+            expect(buttonResult(task)).toEqual({
+                date: today,
+                title: 'ℹ️ Due today, on Sun 3rd Dec (right-click for more options)',
+            });
+        });
+
+        it('should postpone a task due today to tomorrow, as normal', () => {
+            const task = new TaskBuilder().dueDate(today).build();
+            expect(buttonResult(task)).toEqual({
+                date: tomorrow,
+                title: 'ℹ️ Due tomorrow, on Mon 4th Dec (right-click for more options)',
+            });
+        });
+
+        it('should postpone a future task by a day, as normal', () => {
+            const task = new TaskBuilder().dueDate(tomorrow).build();
+            expect(buttonResult(task)).toEqual({
+                date: '2023-12-05',
+                title: 'ℹ️ Postpone due date by a day, to Tue 5th Dec (right-click for more options)',
+            });
+        });
+
+        it('should only look at the date field being postponed', () => {
+            const task = new TaskBuilder().dueDate(tomorrow).startDate(yesterday).build();
+            expect(buttonResult(task).date).toEqual('2023-12-05');
+        });
+
+        it('should move an overdue inferred scheduled date to today and clear the inferred flag', () => {
+            const task = new TaskBuilder().scheduledDate(yesterday).scheduledDateIsInferred(true).build();
+            const action = getPostponeButtonAction(task);
+            const { postponedTask } = action.postponingFunction(task, 'scheduledDate', action.timeUnit, action.amount);
+            expect(postponedTask.scheduledDate!.format('YYYY-MM-DD')).toEqual(today);
+            expect(postponedTask.scheduledDateIsInferred).toEqual(false);
+        });
     });
 });
 

@@ -1,6 +1,7 @@
 import { getSettings } from '../Config/Settings';
 import { capitalizeFirstLetter } from '../lib/StringHelpers';
 import { Task } from '../Task/Task';
+import type { PostponingFunction } from '../ui/Menus/PostponeMenu';
 import { DateFallback } from './DateFallback';
 import { TasksDate } from './TasksDate';
 import type { AllTaskDateFields, HappensDate } from './DateFieldTypes';
@@ -132,8 +133,54 @@ export function postponementSuccessMessage(postponedDate: Moment | null, dateFie
     }
 }
 
+/**
+ * Decide what a left-click on the postpone button does for this task.
+ *
+ * Normally it postpones by one day, which moves an overdue date to tomorrow.
+ * With the `postpone.overdueToToday` setting on, an overdue date is moved to today instead.
+ * Dates that are today or in the future are always postponed by one day.
+ *
+ * @param task - a task for which {@link shouldShowPostponeButton} is true.
+ */
+export function getPostponeButtonAction(task: Task): {
+    amount: number;
+    timeUnit: moment.unitOfTime.DurationConstructor;
+    postponingFunction: PostponingFunction;
+    title: string;
+} {
+    if (getSettings().postpone.overdueToToday && isDateToPostponeBeforeToday(task)) {
+        const amount = 0;
+        const timeUnit = 'days';
+        return {
+            amount,
+            timeUnit,
+            postponingFunction: createFixedDateTask,
+            title: postponeButtonTitleFromText(fixedDateMenuItemTitle(task, amount, timeUnit)),
+        };
+    }
+
+    const amount = 1;
+    const timeUnit = 'day';
+    return {
+        amount,
+        timeUnit,
+        postponingFunction: createPostponedTask,
+        title: postponeButtonTitle(task, amount, timeUnit),
+    };
+}
+
+function isDateToPostponeBeforeToday(task: Task) {
+    const dateField = getDateFieldToPostpone(task);
+    const date = dateField ? task[dateField] : null;
+    // According to the moment.js docs, isBefore is not stable so we use !isSameOrAfter: https://momentjs.com/docs/#/query/is-before/
+    return !!date && !date.isSameOrAfter(window.moment().startOf('day'), 'day');
+}
+
 export function postponeButtonTitle(task: Task, amount: number, timeUnit: moment.unitOfTime.DurationConstructor) {
-    const buttonText = postponeMenuItemTitle(task, amount, timeUnit);
+    return postponeButtonTitleFromText(postponeMenuItemTitle(task, amount, timeUnit));
+}
+
+function postponeButtonTitleFromText(buttonText: string) {
     return `ℹ️ ${buttonText} (right-click for more options)`;
 }
 

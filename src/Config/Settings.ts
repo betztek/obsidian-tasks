@@ -79,6 +79,8 @@ export const DEFAULT_POSTPONE_DATE_FIELD_OPTION = 'due-scheduled-start';
 
 export type PostponeSettings = {
     dateField: PostponeDateField;
+    /** When true, the postpone button moves an overdue date to today instead of tomorrow. */
+    overdueToToday?: boolean;
 };
 
 export interface Settings {
@@ -131,6 +133,7 @@ const defaultSettings: Readonly<Settings> = {
     setCancelledDate: true,
     postpone: {
         dateField: DEFAULT_POSTPONE_DATE_FIELD_OPTION,
+        overdueToToday: false,
     },
     autoSuggestInEditor: true,
     autoSuggestMinMatch: 0,

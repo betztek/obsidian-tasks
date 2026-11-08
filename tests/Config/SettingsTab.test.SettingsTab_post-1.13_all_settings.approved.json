@@ -247,6 +247,11 @@
           "Postpone button"
         ],
         "render": "[Function]"
+      },
+      {
+        "name": "Postpone overdue dates to today",
+        "desc": "When a task's date is in the past, the postpone button (⏩) moves it to today instead of tomorrow. Dates that are today or later are postponed by a day as usual. The right-click menu is unchanged.",
+        "render": "[Function]"
       }
     ],
     "type": "group"
