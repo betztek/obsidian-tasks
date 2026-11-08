@@ -132,9 +132,17 @@ Run when asked for a "pre-release check".
 | Lint (check only) | `yarn run lint:no-fix` |
 | Markdown lint | `yarn run lint:markdown` |
 
-## Known caveats of running next to official Tasks
+## Installing next to official Tasks
 
-The plugin id is changed, but some identifiers are still shared with the official plugin
-(see `src/Obsidian/TasksEvents.ts` event names on `app.workspace`, and the `tasks` code-block processor in
-`src/Renderer/QueryRenderer.ts`). Do not change these without discussing it: renaming them diverges from upstream
-and the `tasks` code block is part of the user-facing syntax.
+Only one of the two plugins is enabled at a time (per vault/device). Running both at once is unsupported:
+they share the `tasks` code block, the `obsidian-tasks-plugin:*` event names on `app.workspace`
+(`src/Obsidian/TasksEvents.ts`), and both would render and suggest on the same task lines.
+Do not rename those identifiers; they are upstream's and the `tasks` code block is user-facing syntax.
+
+What the new id changes for the user:
+
+- Settings live in `.obsidian/plugins/obsidian-tasks-jb/data.json`, separate from official Tasks.
+  Copy `data.json` across to carry settings over.
+- Command ids are prefixed `obsidian-tasks-jb:`, so hotkeys must be rebound.
+- Scripts that reach the API by id (`app.plugins.plugins['obsidian-tasks-plugin'].apiV1`) need
+  `'obsidian-tasks-jb'`.
