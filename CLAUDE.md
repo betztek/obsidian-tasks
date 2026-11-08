@@ -19,17 +19,30 @@ built as **Tasks (JB)** (`obsidian-tasks-jb`) and installed via BRAT alongside t
 - `<upstream-version>` is the upstream release tag `custom` is based on.
 - Bump `n` for every release. Reset to `1` when rebasing onto a new upstream version.
 - Only `manifest.json` `version` matters for releases. Do not run upstream's `release.sh`.
+- Always keep the `-jb.<n>` suffix. Under semver a plain `8.6.0` would sort above every `8.6.0-jb.<n>`.
 
 ## Release process
 
-1. Bump `version` in `manifest.json` on `custom`, commit, push.
-2. In GitHub: Actions → **Release Obsidian Plugin (custom)** → **Run workflow** on branch `custom`.
-3. The workflow builds, tests, creates tag `<version>` (no `v` prefix) and publishes a Release with
-   `main.js`, `manifest.json` and `styles.css` as separate assets. It fails if the tag already exists
-   or if run from any branch other than `custom`.
-4. BRAT picks up the new release on its next update check.
+**A version bump is a release.** Bumping `version` in `manifest.json` is the one explicit signal; only bump
+when a release is wanted.
 
-Cloud sessions cannot push tags; the workflow creates the tag, so never try to tag locally.
+1. Bump `version` in `manifest.json` on `custom`, commit, push.
+2. The push changes `manifest.json`, which starts **Release Obsidian Plugin (custom)**. It builds, tests,
+   creates tag `<version>` (no `v` prefix) and publishes a Release with `main.js`, `manifest.json` and
+   `styles.css` as separate assets. If that version is already released it exits quietly.
+   Pushes that don't touch `manifest.json` don't start it.
+3. BRAT picks up the new release on its next update check.
+
+Manual fallback: Actions → **Release Obsidian Plugin (custom)** → **Run workflow** on `custom`
+(fails if the tag exists). Sessions cannot start workflows (the GitHub App lacks Actions permission),
+which is why the push trigger exists.
+
+- Releases are published before a check by hand in Obsidian. That's deliberate: rollback is via BRAT's
+  "Add a beta plugin with frozen version based on a release tag".
+- **Never delete releases or tags**; they are the rollback targets.
+- Never create or push tags from a session; the workflow creates them.
+- Rolling back across an upstream version (e.g. `8.7.0-jb.1` → `8.6.0-jb.2`) can meet a settings file that
+  the newer version already migrated. Rollbacks within the same upstream version are safe.
 
 ## Scope
 
@@ -88,7 +101,9 @@ then `git fetch upstream --tags`.
 3. Run `yarn install --frozen-lockfile`, `yarn test`, `yarn run lint:no-fix`, `yarn run build`.
 4. Set `manifest.json` version to `<tag>-jb.1` and commit it (`chore(custom): version <tag>-jb.1`).
 5. Only if step 3 is green: `git push --force-with-lease origin custom`. Never push `main` or tags.
-6. Summarize upstream changes that touch the customizations and what to verify by hand in Obsidian.
+   This push releases `<tag>-jb.1` (see Release process).
+6. Summarize upstream changes that touch the customizations and what to verify by hand in Obsidian
+   after updating via BRAT.
 
 Force-pushing is expected here: the rebase rewrites the custom commits. Old release tags keep pointing at the
 pre-rebase commits; that is fine.
@@ -101,8 +116,10 @@ Run when asked for a "pre-release check".
    If the last `-jb` release tag is still an ancestor of `custom` (no sync since), also list
    `git log --oneline <last-jb-tag>..custom` as "new since last release".
 2. Run the full suite and a production build (`yarn test`, `yarn run lint:no-fix`, `yarn run build`).
-3. Bump the `-jb.<n>` version in `manifest.json`, commit, and push `custom`.
-4. List what to verify by hand in Obsidian before clicking **Run workflow**, based on the commits in step 1.
+3. Only if step 2 is green: bump the `-jb.<n>` version in `manifest.json`, commit
+   (`chore(custom): version <version>`) and push `custom`. This push publishes the release.
+4. Report the release URL once the workflow finishes, and list what to verify by hand in Obsidian after updating
+   via BRAT, based on the commits in step 1. If something is wrong: roll back in BRAT, then fix.
 
 ## Commands
 
