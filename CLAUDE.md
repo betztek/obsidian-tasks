@@ -78,6 +78,7 @@ If a requested change would cross that line, stop and say so before implementing
   mention them as suggestions instead.
 - **Plan first:** for anything beyond a small, obvious tweak (new UI element, changes across several files,
   anything touching settings), propose the approach and wait for an explicit OK before coding.
+- **i18n:** fork-only UI strings go in `src/i18n/locales/en.json` only; other locales fall back to English.
 - **Corrections:** when corrected on a convention or preference, propose a CLAUDE.md update so the next
   session gets it right.
 
