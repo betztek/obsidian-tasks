@@ -74,6 +74,8 @@ then `git fetch upstream --tags`.
 - **Latest tag**: `git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1`
 
 1. **Check (read-only), then STOP.**
+   - Sanity check: `git log --oneline <base-tag>..custom` must list only custom commits (a handful, all
+     `(custom)`-scoped). If upstream commits appear, `custom` is not sitting on a release tag; stop and report.
    - List every upstream release between the base tag and the latest tag, summarized from upstream's GitHub
      release notes, grouped as features / fixes / breaking changes.
    - Flag upstream changes to files that the custom commits modify
