@@ -5,10 +5,10 @@ built as **Tasks (JB)** (`obsidian-tasks-jb`) and installed via BRAT alongside t
 
 ## Branch model
 
-- `main` mirrors upstream `obsidian-tasks-group/obsidian-tasks:main`. Never commit to it.
-- `custom` holds all personal changes, kept as a small stack of commits rebased onto `main`.
-- To update: sync `main` from upstream, then `git rebase main` on `custom` and force-push `custom`
-  (`--force-with-lease`).
+- `main` mirrors upstream `obsidian-tasks-group/obsidian-tasks:main`. Sessions never commit to or push it;
+  the owner keeps it current with GitHub's **Sync fork** button if wanted. Nothing depends on it.
+- `custom` (the default branch) holds all personal changes, kept as a small stack of commits rebased onto an
+  **upstream release tag** (e.g. `8.6.0`), not upstream `main`. See "upstream sync" below.
 - Keep the plugin-identity change (`manifest.json` id/name/version) as its own commit so rebases stay trivial.
 - Develop on `custom` (or a short-lived branch merged into it). CI (`verify.yml`) runs on pushes and PRs to `custom`.
 
@@ -16,7 +16,7 @@ built as **Tasks (JB)** (`obsidian-tasks-jb`) and installed via BRAT alongside t
 
 `<upstream-version>-jb.<n>`, e.g. `8.6.0-jb.1`.
 
-- `<upstream-version>` is the upstream release `custom` is based on.
+- `<upstream-version>` is the upstream release tag `custom` is based on.
 - Bump `n` for every release. Reset to `1` when rebasing onto a new upstream version.
 - Only `manifest.json` `version` matters for releases. Do not run upstream's `release.sh`.
 
@@ -63,24 +63,41 @@ If a requested change would cross that line, stop and say so before implementing
 - **Corrections:** when corrected on a convention or preference, propose a CLAUDE.md update so the next
   session gets it right.
 
-### Procedure: "upstream sync"
+### Procedure: "check upstream" / "upstream sync"
 
-Run when asked to "do an upstream sync".
+Run when asked to "check upstream" or "do an upstream sync". Upstream tags have no `v` prefix (`8.6.0`).
 
-1. Sync `main` with upstream `obsidian-tasks-group/obsidian-tasks` (add an `upstream` remote if missing).
-   `main` is only ever fast-forwarded to upstream, never committed to.
-2. Rebase `custom` onto `main`, resolving conflicts in favor of keeping the custom changes.
-3. Run the full suite (`yarn test`, `yarn run lint:no-fix`).
-4. Set `manifest.json` version to `<new-upstream-version>-jb.1`.
-5. Summarize upstream changes that touch the customizations (files or behavior changed on `custom`).
+Setup: add remote `upstream` = `https://github.com/obsidian-tasks-group/obsidian-tasks.git` if missing,
+then `git fetch upstream --tags`.
 
-Push `main`, then force-push `custom` with `--force-with-lease`, only after the suite is green.
+- **Base tag** (what `custom` is on now): `git tag --merged custom --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1`
+- **Latest tag**: `git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1`
+
+1. **Check (read-only), then STOP.**
+   - List every upstream release between the base tag and the latest tag, summarized from upstream's GitHub
+     release notes, grouped as features / fixes / breaking changes.
+   - Flag upstream changes to files that the custom commits modify
+     (`git diff --stat <base>..<latest> -- $(git diff --name-only <base>..custom)`).
+   - Recommend sync now or skip, with reasons.
+   - Change nothing. Wait for an explicit OK in this session ("sync", "go ahead", "sync to 8.7.0").
+     If "check upstream" was the request, stop here. A new session never acts on an OK from an earlier one.
+2. Rebase `custom` onto the chosen tag: `git rebase --onto <tag> <base-tag> custom`. Resolve conflicts in favor of
+   keeping the custom changes; list every conflict and how it was resolved.
+3. Run `yarn install --frozen-lockfile`, `yarn test`, `yarn run lint:no-fix`, `yarn run build`.
+4. Set `manifest.json` version to `<tag>-jb.1` and commit it (`chore(custom): version <tag>-jb.1`).
+5. Only if step 3 is green: `git push --force-with-lease origin custom`. Never push `main` or tags.
+6. Summarize upstream changes that touch the customizations and what to verify by hand in Obsidian.
+
+Force-pushing is expected here: the rebase rewrites the custom commits. Old release tags keep pointing at the
+pre-rebase commits; that is fine.
 
 ### Procedure: "pre-release check"
 
 Run when asked for a "pre-release check".
 
-1. List commits on `custom` since the last release tag (`git fetch --tags`; `git log <last-tag>..custom`).
+1. List the custom commits: `git log --oneline <base-tag>..custom` (base tag as defined in "upstream sync").
+   If the last `-jb` release tag is still an ancestor of `custom` (no sync since), also list
+   `git log --oneline <last-jb-tag>..custom` as "new since last release".
 2. Run the full suite and a production build (`yarn test`, `yarn run lint:no-fix`, `yarn run build`).
 3. Bump the `-jb.<n>` version in `manifest.json`, commit, and push `custom`.
 4. List what to verify by hand in Obsidian before clicking **Run workflow**, based on the commits in step 1.
